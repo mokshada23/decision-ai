@@ -1,0 +1,7 @@
+# gitignore  
+node_modules/  
+backend/.env  
+frontend/.env.local  
+.next/  
+backend/node_modules/  
+frontend/node_modules/ 
