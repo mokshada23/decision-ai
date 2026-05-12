@@ -14,7 +14,7 @@ export default function EvalsPage() {
   const fetchEvals = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/agent/evals/all', {
+      const response = await fetch('https://decision-ai-production-89e7.up.railway.app/api/agent/evals/all', {
         headers: {
           'Authorization': `Bearer ${token}`
         }

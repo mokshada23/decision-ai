@@ -47,8 +47,8 @@ export default function ResearchPage() {
       }
 
       const url = decisionId === 'guest'
-        ? 'http://localhost:5000/api/agent/run-guest'
-        : `http://localhost:5000/api/agent/run/${decisionId}`;
+        ? 'https://decision-ai-production-89e7.up.railway.app/api/agent/run-guest'
+        : `https://decision-ai-production-89e7.up.railway.app/api/agent/run/${decisionId}`;
 
       const body = decisionId === 'guest'
         ? JSON.stringify(guestData)
@@ -107,7 +107,7 @@ export default function ResearchPage() {
     setChatLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/agent/chat', {
+      const response = await fetch('https://decision-ai-production-89e7.up.railway.app/api/agent/chat', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
