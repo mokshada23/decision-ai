@@ -35,16 +35,33 @@ export default function ResearchPage() {
     const token = localStorage.getItem('token');
 
     try {
-      const response = await fetch(
-        `http://localhost:5000/api/agent/run/${decisionId}`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
+      let guestData = null;
+
+      if (decisionId === 'guest') {
+        guestData = JSON.parse(localStorage.getItem('guestDecision'));
+        if (!guestData) {
+          setError('No decision found. Please start again.');
+          setIsRunning(false);
+          return;
         }
-      );
+      }
+
+      const url = decisionId === 'guest'
+        ? 'http://localhost:5000/api/agent/run-guest'
+        : `http://localhost:5000/api/agent/run/${decisionId}`;
+
+      const body = decisionId === 'guest'
+        ? JSON.stringify(guestData)
+        : JSON.stringify({});
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body,
+      });
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -82,7 +99,6 @@ export default function ResearchPage() {
       setIsRunning(false);
     }
   };
-
   const sendChatMessage = async () => {
     if (!chatInput.trim()) return;
     const userMessage = { role: 'user', content: chatInput };

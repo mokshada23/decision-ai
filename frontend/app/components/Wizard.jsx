@@ -40,12 +40,27 @@ export default function Wizard() {
   const handleSubmit = async () => {
     try {
       const data = { decision, audience, criteria };
-      const response = await createDecision(data);
-      const decisionId = response.data.decision.id;
-      window.location.href = `/dashboard/research?id=${decisionId}`;
+      const token = localStorage.getItem('token');
+
+      if (token) {
+        // Logged in — save to database
+        const response = await createDecision(data);
+        const decisionId = response.data.decision.id;
+        window.location.href = `/dashboard/research?id=${decisionId}`;
+      } else {
+        // Guest — save to localStorage and redirect
+        const guestDecision = {
+          id: 'guest',
+          decision: data.decision,
+          audience: data.audience,
+          criteria: data.criteria,
+        };
+        localStorage.setItem('guestDecision', JSON.stringify(guestDecision));
+        window.location.href = `/dashboard/research?id=guest`;
+      }
     } catch (err) {
       console.error(err);
-      alert('Something went wrong. Are you logged in?');
+      alert('Something went wrong. Try again.');
     }
   };
 

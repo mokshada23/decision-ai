@@ -165,4 +165,39 @@ Answer their follow up questions helpfully and concisely based on this research 
     res.status(500).json({ message: 'Chat error', reply: 'Something went wrong. Try again.' });
   }
 });
+
+// Guest route — no auth required
+router.post('/run-guest', async (req, res) => {
+  try {
+    const { decision, audience, criteria } = req.body;
+
+    if (!decision || !criteria) {
+      return res.status(400).json({ message: 'Decision and criteria required' });
+    }
+
+    // Set up streaming headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    const onStep = (stepData) => {
+      res.write(`data: ${JSON.stringify(stepData)}\n\n`);
+    };
+
+    const result = await runResearchAgent(
+      decision,
+      audience || 'Just me',
+      criteria,
+      onStep
+    );
+
+    res.write(`data: ${JSON.stringify({ step: 'complete', result })}\n\n`);
+    res.end();
+
+  } catch (err) {
+    console.error(err);
+    res.write(`data: ${JSON.stringify({ step: 'error', message: err.message })}\n\n`);
+    res.end();
+  }
+});
 module.exports = router;
