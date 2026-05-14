@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 const steps = [
@@ -12,7 +12,7 @@ const steps = [
   { id: 6, label: 'Finding resources to go deeper' },
 ];
 
-export default function ResearchPage() {
+function ResearchPageContent()  {
   const searchParams = useSearchParams();
   const decisionId = searchParams.get('id');
 
@@ -398,5 +398,12 @@ export default function ResearchPage() {
 
       </div>
     </div>
+  );
+}
+export default function ResearchPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><p className="text-gray-500">Loading...</p></div>}>
+      <ResearchPageContent />
+    </Suspense>
   );
 }
