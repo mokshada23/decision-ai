@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 const steps = [
   { id: 1, label: 'Understanding your decision' },
@@ -9,11 +9,12 @@ const steps = [
   { id: 3, label: 'Detecting conflicts' },
   { id: 4, label: 'Scoring confidence' },
   { id: 5, label: 'Generating report' },
-  { id: 6, label: 'Finding resources to go deeper' },
+  { id: 6, label: 'Finding resources' },
 ];
 
-function ResearchPageContent()  {
+function ResearchPageContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const decisionId = searchParams.get('id');
 
   const [currentStep, setCurrentStep] = useState(0);
@@ -36,7 +37,6 @@ function ResearchPageContent()  {
 
     try {
       let guestData = null;
-
       if (decisionId === 'guest') {
         guestData = JSON.parse(localStorage.getItem('guestDecision'));
         if (!guestData) {
@@ -50,17 +50,13 @@ function ResearchPageContent()  {
         ? 'https://decision-ai-production-89e7.up.railway.app/api/agent/run-guest'
         : `https://decision-ai-production-89e7.up.railway.app/api/agent/run/${decisionId}`;
 
-      const body = decisionId === 'guest'
-        ? JSON.stringify(guestData)
-        : JSON.stringify({});
-
       const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(token && { Authorization: `Bearer ${token}` }),
         },
-        body,
+        body: decisionId === 'guest' ? JSON.stringify(guestData) : JSON.stringify({}),
       });
 
       const reader = response.body.getReader();
@@ -69,10 +65,8 @@ function ResearchPageContent()  {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-
         const chunk = decoder.decode(value);
         const lines = chunk.split('\n');
-
         for (const line of lines) {
           if (line.startsWith('data: ')) {
             try {
@@ -85,12 +79,10 @@ function ResearchPageContent()  {
                 setError(data.message);
                 setIsRunning(false);
               } else if (data.status === 'done') {
-                setCompletedSteps((prev) => [...prev, data.step]);
+                setCompletedSteps(prev => [...prev, data.step]);
                 setCurrentStep(data.step + 1);
               }
-            } catch {
-              // skip
-            }
+            } catch { }
           }
         }
       }
@@ -99,32 +91,24 @@ function ResearchPageContent()  {
       setIsRunning(false);
     }
   };
+
   const sendChatMessage = async () => {
     if (!chatInput.trim()) return;
     const userMessage = { role: 'user', content: chatInput };
-    setChatMessages((prev) => [...prev, userMessage]);
+    setChatMessages(prev => [...prev, userMessage]);
     setChatInput('');
     setChatLoading(true);
     try {
       const token = localStorage.getItem('token');
       const response = await fetch('https://decision-ai-production-89e7.up.railway.app/api/agent/chat', {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: chatInput,
-          decisionId,
-          report: result.report,
-          recommendation: result.report.recommendation,
-          messages: chatMessages,
-        }),
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: chatInput, decisionId, report: result.report, recommendation: result.report.recommendation, messages: chatMessages }),
       });
       const data = await response.json();
-      setChatMessages((prev) => [...prev, { role: 'assistant', content: data.reply }]);
-    } catch (err) {
-      setChatMessages((prev) => [...prev, { role: 'assistant', content: 'Something went wrong. Try again.' }]);
+      setChatMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
+    } catch {
+      setChatMessages(prev => [...prev, { role: 'assistant', content: 'Something went wrong. Try again.' }]);
     } finally {
       setChatLoading(false);
     }
@@ -135,83 +119,108 @@ function ResearchPageContent()  {
   }, [decisionId]);
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-3xl mx-auto">
+    <div style={{minHeight: '100vh', background: '#0A0A0A', fontFamily: '-apple-system, sans-serif'}}>
 
-        <h1 className="text-2xl font-semibold text-gray-900 mb-2">AI Research Agent</h1>
-        <p className="text-sm text-gray-500 mb-8">Analyzing your decision in real time</p>
-
-        {/* Steps progress */}
-        {isRunning && (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
-            <h2 className="text-sm font-medium text-gray-700 mb-4">Agent progress</h2>
-            <div className="space-y-3">
-              {steps.map((s) => (
-                <div key={s.id} className="flex items-center gap-3">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0 ${completedSteps.includes(s.id) ? 'bg-green-500 text-white' : currentStep === s.id ? 'bg-blue-600 text-white animate-pulse' : 'bg-gray-100 text-gray-400'}`}>
-                    {completedSteps.includes(s.id) ? '✓' : s.id}
-                  </div>
-                  <span className={`text-sm ${currentStep === s.id ? 'text-gray-900 font-medium' : completedSteps.includes(s.id) ? 'text-gray-500' : 'text-gray-300'}`}>
-                    {s.label}
-                  </span>
-                  {currentStep === s.id && (
-                    <span className="text-xs text-blue-500 animate-pulse">running...</span>
-                  )}
-                </div>
-              ))}
-            </div>
+      {/* Header */}
+      <div style={{padding: '16px 32px', borderBottom: '1px solid #1C1C1C', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: '#0A0A0A', zIndex: 10}}>
+        <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+          <div style={{width: '24px', height: '24px', borderRadius: '6px', background: '#38BDF8', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+            <span style={{fontSize: '12px', fontWeight: '700', color: '#000'}}>d</span>
           </div>
-        )}
+          <span style={{fontSize: '14px', fontWeight: '500', color: '#F5F5F5'}}>decision-ai</span>
+        </div>
+        <button
+          onClick={() => router.push('/')}
+          style={{fontSize: '13px', color: '#888', background: 'transparent', border: '1px solid #222', borderRadius: '8px', padding: '6px 14px', cursor: 'pointer', fontFamily: 'inherit'}}
+        >
+          ← New research
+        </button>
+      </div>
+
+      {/* Content */}
+      <div style={{maxWidth: '680px', margin: '0 auto', padding: '40px 24px 120px'}}>
+
+        {/* Running state */}
+{isRunning && (
+  <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', padding: '40px 0'}}>
+    <p style={{fontSize: '15px', color: '#555', marginBottom: '48px', textAlign: 'center'}}>Researching your decision...</p>
+    <div style={{display: 'flex', flexDirection: 'column', gap: '20px', width: '100%', maxWidth: '400px'}}>
+      {steps.map(s => (
+        <div key={s.id} style={{display: 'flex', alignItems: 'center', gap: '16px'}}>
+          <div style={{
+            width: '36px', height: '36px', borderRadius: '50%',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '14px', fontWeight: '500', flexShrink: 0,
+            background: completedSteps.includes(s.id) ? '#38BDF8' : currentStep === s.id ? '#0A1F2E' : '#111111',
+            color: completedSteps.includes(s.id) ? '#000' : currentStep === s.id ? '#38BDF8' : '#333',
+            border: currentStep === s.id ? '1px solid #38BDF8' : '1px solid #1C1C1C',
+            transition: 'all 0.3s',
+          }}>
+            {completedSteps.includes(s.id) ? '✓' : s.id}
+          </div>
+          <div style={{flex: 1}}>
+            <span style={{fontSize: '15px', color: currentStep === s.id ? '#F5F5F5' : completedSteps.includes(s.id) ? '#555' : '#2A2A2A', transition: 'color 0.3s'}}>
+              {s.label}
+            </span>
+            {currentStep === s.id && (
+              <span style={{fontSize: '12px', color: '#38BDF8', marginLeft: '10px'}}>running...</span>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
 
         {/* Error */}
         {error && (
-          <div className="bg-red-50 border border-red-100 rounded-2xl p-4 mb-6">
-            <p className="text-sm text-red-600">{error}</p>
+          <div style={{background: '#1A0A0A', border: '1px solid #3A1A1A', borderRadius: '12px', padding: '16px', marginBottom: '24px'}}>
+            <p style={{fontSize: '13px', color: '#FF6B6B'}}>{error}</p>
           </div>
         )}
 
         {/* Result */}
         {result && (
-          <div className="space-y-6">
+          <div style={{display: 'flex', flexDirection: 'column', gap: '16px'}}>
 
-            {/* Recommendation */}
-            <div className="bg-blue-600 rounded-2xl p-6 text-white">
-              <p className="text-xs font-medium uppercase tracking-wider mb-2 opacity-75">Final verdict</p>
+            {/* Winner card */}
+            <div style={{background: '#0A1F2E', border: '1px solid #38BDF8', borderRadius: '16px', padding: '24px', textAlign: 'center'}}>
+              <p style={{fontSize: '11px', color: '#38BDF8', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.08em'}}>Final verdict</p>
               {result.report.options.length > 0 && (
-                <div className="flex items-center gap-3 mb-3">
-                  <span className="bg-white text-blue-600 text-sm font-bold px-4 py-1.5 rounded-full">
+                <div style={{marginBottom: '12px'}}>
+                  <span style={{fontSize: '28px', fontWeight: '600', color: '#F5F5F5'}}>
                     🏆 {result.report.options.sort((a, b) => b.score - a.score)[0].name}
                   </span>
-                  <span className="text-white text-sm opacity-75">
+                  <p style={{fontSize: '12px', color: '#38BDF8', marginTop: '4px'}}>
                     scored {result.report.options.sort((a, b) => b.score - a.score)[0].score}/100
-                  </span>
+                  </p>
                 </div>
               )}
-              <p className="text-lg font-semibold mb-2">{result.report.recommendation}</p>
-              <p className="text-sm opacity-80">{result.report.reasoning}</p>
+              <p style={{fontSize: '14px', color: '#CCCCCC', lineHeight: '1.6', marginBottom: '8px'}}>{result.report.recommendation}</p>
+              <p style={{fontSize: '13px', color: '#666', lineHeight: '1.6'}}>{result.report.reasoning}</p>
             </div>
 
             {/* Options */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-              <h2 className="text-sm font-medium text-gray-700 mb-4">Options compared</h2>
-              <div className="grid grid-cols-1 gap-4">
+            <div style={{background: '#111111', border: '1px solid #1C1C1C', borderRadius: '16px', padding: '20px'}}>
+              <p style={{fontSize: '12px', color: '#555', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '16px'}}>Options compared</p>
+              <div style={{display: 'flex', flexDirection: 'column', gap: '12px'}}>
                 {result.report.options.map((option, i) => (
-                  <div key={i} className="border border-gray-100 rounded-xl p-4">
-                    <div className="flex justify-between items-center mb-3">
-                      <span className="font-medium text-gray-900">{option.name}</span>
-                      <span className="text-sm font-semibold text-blue-600">{option.score}/100</span>
+                  <div key={i} style={{background: '#0D0D0D', border: '1px solid #1C1C1C', borderRadius: '12px', padding: '16px'}}>
+                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px'}}>
+                      <span style={{fontSize: '14px', fontWeight: '500', color: '#F5F5F5'}}>{option.name}</span>
+                      <span style={{fontSize: '13px', color: '#38BDF8', fontWeight: '500'}}>{option.score}/100</span>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px'}}>
                       <div>
-                        <p className="text-xs text-green-600 font-medium mb-1">Pros</p>
+                        <p style={{fontSize: '11px', color: '#3D9E6B', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em'}}>Pros</p>
                         {option.pros.map((p, j) => (
-                          <p key={j} className="text-xs text-gray-600 mb-0.5">✓ {p}</p>
+                          <p key={j} style={{fontSize: '12px', color: '#888', marginBottom: '4px'}}>✓ {p}</p>
                         ))}
                       </div>
                       <div>
-                        <p className="text-xs text-red-500 font-medium mb-1">Cons</p>
+                        <p style={{fontSize: '11px', color: '#9E3D3D', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em'}}>Cons</p>
                         {option.cons.map((c, j) => (
-                          <p key={j} className="text-xs text-gray-600 mb-0.5">✗ {c}</p>
+                          <p key={j} style={{fontSize: '12px', color: '#888', marginBottom: '4px'}}>✗ {c}</p>
                         ))}
                       </div>
                     </div>
@@ -221,50 +230,48 @@ function ResearchPageContent()  {
             </div>
 
             {/* Confidence scores */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-              <h2 className="text-sm font-medium text-gray-700 mb-4">Confidence scores</h2>
-              <div className="space-y-3">
+            <div style={{background: '#111111', border: '1px solid #1C1C1C', borderRadius: '16px', padding: '20px'}}>
+              <p style={{fontSize: '12px', color: '#555', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '16px'}}>Confidence scores</p>
+              <div style={{display: 'flex', flexDirection: 'column', gap: '14px'}}>
                 {result.scores.scores.map((s, i) => (
                   <div key={i}>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-gray-700">{s.criterion}</span>
-                      <span className="font-medium text-gray-900">{s.score}%</span>
+                    <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '6px'}}>
+                      <span style={{fontSize: '13px', color: '#CCCCCC'}}>{s.criterion}</span>
+                      <span style={{fontSize: '13px', color: '#38BDF8', fontWeight: '500'}}>{s.score}%</span>
                     </div>
-                    <div className="w-full bg-gray-100 rounded-full h-1.5">
-                      <div className="bg-blue-600 h-1.5 rounded-full" style={{ width: `${s.score}%` }} />
+                    <div style={{background: '#1A1A1A', borderRadius: '4px', height: '3px', overflow: 'hidden'}}>
+                      <div style={{background: '#38BDF8', height: '100%', width: `${s.score}%`, borderRadius: '4px'}} />
                     </div>
-                    <p className="text-xs text-gray-400 mt-1">{s.reason}</p>
+                    <p style={{fontSize: '11px', color: '#444', marginTop: '4px'}}>{s.reason}</p>
                   </div>
                 ))}
-                <div className="pt-2 border-t border-gray-100">
-                  <div className="flex justify-between text-sm">
-                    <span className="font-medium text-gray-700">Overall confidence</span>
-                    <span className="font-semibold text-blue-600">{result.scores.overallConfidence}%</span>
-                  </div>
+                <div style={{borderTop: '1px solid #1C1C1C', paddingTop: '12px', display: 'flex', justifyContent: 'space-between'}}>
+                  <span style={{fontSize: '13px', color: '#888'}}>Overall confidence</span>
+                  <span style={{fontSize: '14px', color: '#38BDF8', fontWeight: '600'}}>{result.scores.overallConfidence}%</span>
                 </div>
               </div>
             </div>
 
             {/* Conflicts */}
             {result.conflicts.hasConflicts && (
-              <div className="bg-amber-50 border border-amber-100 rounded-2xl p-6">
-                <h2 className="text-sm font-medium text-amber-700 mb-3">⚠ Conflicts detected</h2>
-                <div className="space-y-2">
+              <div style={{background: '#1A1500', border: '1px solid #3A3000', borderRadius: '16px', padding: '20px'}}>
+                <p style={{fontSize: '12px', color: '#C8A800', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '12px'}}>⚠ Conflicts detected</p>
+                <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
                   {result.conflicts.conflicts.map((c, i) => (
-                    <p key={i} className="text-xs text-amber-700">• {c}</p>
+                    <p key={i} style={{fontSize: '12px', color: '#888', lineHeight: '1.5'}}>• {c}</p>
                   ))}
                 </div>
               </div>
             )}
 
             {/* Next steps */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-              <h2 className="text-sm font-medium text-gray-700 mb-4">Next steps</h2>
-              <div className="space-y-2">
+            <div style={{background: '#111111', border: '1px solid #1C1C1C', borderRadius: '16px', padding: '20px'}}>
+              <p style={{fontSize: '12px', color: '#555', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '16px'}}>Next steps</p>
+              <div style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
                 {result.report.nextSteps.map((step, i) => (
-                  <div key={i} className="flex gap-3 text-sm text-gray-600">
-                    <span className="font-semibold text-blue-600 flex-shrink-0">{i + 1}.</span>
-                    <span>{step}</span>
+                  <div key={i} style={{display: 'flex', gap: '12px', alignItems: 'flex-start'}}>
+                    <span style={{fontSize: '12px', color: '#38BDF8', fontWeight: '600', flexShrink: 0, marginTop: '1px'}}>{i + 1}.</span>
+                    <span style={{fontSize: '13px', color: '#888', lineHeight: '1.5'}}>{step}</span>
                   </div>
                 ))}
               </div>
@@ -272,39 +279,38 @@ function ResearchPageContent()  {
 
             {/* Resources */}
             {result.resources && (
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                <h2 className="text-sm font-medium text-gray-700 mb-6">Go deeper</h2>
+              <div style={{background: '#111111', border: '1px solid #1C1C1C', borderRadius: '16px', padding: '20px'}}>
+                <p style={{fontSize: '12px', color: '#555', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '20px'}}>Go deeper</p>
 
                 {result.resources.startHere && (
-                  <div className="mb-6">
-                    <p className="text-xs font-medium text-green-600 uppercase tracking-wider mb-3">Start here</p>
-                    <a href={result.resources.startHere.url} target="_blank" rel="noopener noreferrer" className="flex items-start gap-3 p-4 rounded-xl border-2 border-green-200 bg-green-50 hover:bg-green-100 transition group">
-                      <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center flex-shrink-0">
-                        <span className="text-white text-lg">⭐</span>
+                  <div style={{marginBottom: '20px'}}>
+                    <p style={{fontSize: '11px', color: '#3D9E6B', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px'}}>Start here</p>
+                    <a href={result.resources.startHere.url} target="_blank" rel="noopener noreferrer"
+                      style={{display: 'flex', gap: '12px', padding: '14px', background: '#0D1A0D', border: '1px solid #1C3A1C', borderRadius: '12px', textDecoration: 'none'}}>
+                      <div style={{width: '36px', height: '36px', background: '#1C4A1C', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0}}>
+                        <span>⭐</span>
                       </div>
                       <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="text-sm font-semibold text-gray-900 group-hover:text-green-700 transition">{result.resources.startHere.name}</p>
-                          <span className="text-xs bg-green-200 text-green-700 px-2 py-0.5 rounded-full">{result.resources.startHere.type}</span>
-                        </div>
-                        <p className="text-xs text-gray-600">{result.resources.startHere.description}</p>
+                        <p style={{fontSize: '13px', fontWeight: '500', color: '#F5F5F5', marginBottom: '4px'}}>{result.resources.startHere.name}</p>
+                        <p style={{fontSize: '12px', color: '#666', lineHeight: '1.4'}}>{result.resources.startHere.description}</p>
                       </div>
                     </a>
                   </div>
                 )}
 
                 {result.resources.websites?.length > 0 && (
-                  <div className="mb-6">
-                    <p className="text-xs font-medium text-blue-600 uppercase tracking-wider mb-3">Websites</p>
-                    <div className="space-y-3">
+                  <div style={{marginBottom: '20px'}}>
+                    <p style={{fontSize: '11px', color: '#38BDF8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px'}}>Websites</p>
+                    <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
                       {result.resources.websites.map((site, i) => (
-                        <a key={i} href={site.url} target="_blank" rel="noopener noreferrer" className="flex items-start gap-3 p-3 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50 transition group">
-                          <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <span className="text-blue-600 text-xs font-bold">W</span>
+                        <a key={i} href={site.url} target="_blank" rel="noopener noreferrer"
+                          style={{display: 'flex', gap: '12px', padding: '12px 14px', background: '#0D0D0D', border: '1px solid #1C1C1C', borderRadius: '10px', textDecoration: 'none'}}>
+                          <div style={{width: '28px', height: '28px', background: '#0A1F2E', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0}}>
+                            <span style={{fontSize: '11px', fontWeight: '600', color: '#38BDF8'}}>W</span>
                           </div>
                           <div>
-                            <p className="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition">{site.name}</p>
-                            <p className="text-xs text-gray-500 mt-0.5">{site.description}</p>
+                            <p style={{fontSize: '13px', color: '#CCCCCC', marginBottom: '2px'}}>{site.name}</p>
+                            <p style={{fontSize: '11px', color: '#555'}}>{site.description}</p>
                           </div>
                         </a>
                       ))}
@@ -313,17 +319,18 @@ function ResearchPageContent()  {
                 )}
 
                 {result.resources.youtube?.length > 0 && (
-                  <div className="mb-6">
-                    <p className="text-xs font-medium text-red-500 uppercase tracking-wider mb-3">YouTube searches</p>
-                    <div className="space-y-2">
+                  <div style={{marginBottom: '20px'}}>
+                    <p style={{fontSize: '11px', color: '#E05555', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px'}}>YouTube</p>
+                    <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
                       {result.resources.youtube.map((yt, i) => (
-                        <a key={i} href={`https://www.youtube.com/results?search_query=${encodeURIComponent(yt.searchQuery)}`} target="_blank" rel="noopener noreferrer" className="flex items-start gap-3 p-3 rounded-xl border border-gray-100 hover:border-red-200 hover:bg-red-50 transition group">
-                          <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <span className="text-red-500 text-xs font-bold">YT</span>
+                        <a key={i} href={`https://www.youtube.com/results?search_query=${encodeURIComponent(yt.searchQuery)}`} target="_blank" rel="noopener noreferrer"
+                          style={{display: 'flex', gap: '12px', padding: '12px 14px', background: '#0D0D0D', border: '1px solid #1C1C1C', borderRadius: '10px', textDecoration: 'none'}}>
+                          <div style={{width: '28px', height: '28px', background: '#2A0A0A', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0}}>
+                            <span style={{fontSize: '11px', fontWeight: '600', color: '#E05555'}}>YT</span>
                           </div>
                           <div>
-                            <p className="text-sm font-medium text-gray-900 group-hover:text-red-500 transition">"{yt.searchQuery}"</p>
-                            <p className="text-xs text-gray-500 mt-0.5">{yt.description}</p>
+                            <p style={{fontSize: '13px', color: '#CCCCCC', marginBottom: '2px'}}>"{yt.searchQuery}"</p>
+                            <p style={{fontSize: '11px', color: '#555'}}>{yt.description}</p>
                           </div>
                         </a>
                       ))}
@@ -333,16 +340,17 @@ function ResearchPageContent()  {
 
                 {result.resources.communities?.length > 0 && (
                   <div>
-                    <p className="text-xs font-medium text-purple-600 uppercase tracking-wider mb-3">Communities</p>
-                    <div className="space-y-2">
+                    <p style={{fontSize: '11px', color: '#9B6BDF', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px'}}>Communities</p>
+                    <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
                       {result.resources.communities.map((com, i) => (
-                        <a key={i} href={com.url} target="_blank" rel="noopener noreferrer" className="flex items-start gap-3 p-3 rounded-xl border border-gray-100 hover:border-purple-200 hover:bg-purple-50 transition group">
-                          <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <span className="text-purple-600 text-xs font-bold">C</span>
+                        <a key={i} href={com.url} target="_blank" rel="noopener noreferrer"
+                          style={{display: 'flex', gap: '12px', padding: '12px 14px', background: '#0D0D0D', border: '1px solid #1C1C1C', borderRadius: '10px', textDecoration: 'none'}}>
+                          <div style={{width: '28px', height: '28px', background: '#1A0D2A', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0}}>
+                            <span style={{fontSize: '11px', fontWeight: '600', color: '#9B6BDF'}}>C</span>
                           </div>
                           <div>
-                            <p className="text-sm font-medium text-gray-900 group-hover:text-purple-600 transition">{com.name}</p>
-                            <p className="text-xs text-gray-500 mt-0.5">{com.description}</p>
+                            <p style={{fontSize: '13px', color: '#CCCCCC', marginBottom: '2px'}}>{com.name}</p>
+                            <p style={{fontSize: '11px', color: '#555'}}>{com.description}</p>
                           </div>
                         </a>
                       ))}
@@ -353,40 +361,53 @@ function ResearchPageContent()  {
             )}
 
             {/* Continue Chat */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-              <h2 className="text-sm font-medium text-gray-700 mb-4">Continue the conversation</h2>
-              <div className="space-y-3 mb-4 max-h-80 overflow-y-auto">
+            <div style={{background: '#111111', border: '1px solid #1C1C1C', borderRadius: '16px', padding: '20px'}}>
+              <p style={{fontSize: '12px', color: '#555', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '16px'}}>Continue the conversation</p>
+              <div style={{maxHeight: '280px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '12px'}}>
                 {chatMessages.length === 0 && (
-                  <p className="text-xs text-gray-400 text-center py-4">Ask any follow up question about your decision</p>
+                  <p style={{fontSize: '13px', color: '#333', textAlign: 'center', padding: '20px 0'}}>Ask any follow up question about your decision</p>
                 )}
                 {chatMessages.map((msg, i) => (
-                  <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-xs px-4 py-2.5 rounded-2xl text-sm ${msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-800'}`}>
+                  <div key={i} style={{display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start'}}>
+                    <div style={{
+                      maxWidth: '75%', padding: '10px 14px', borderRadius: '12px', fontSize: '13px', lineHeight: '1.5',
+                      background: msg.role === 'user' ? '#38BDF8' : '#1A1A1A',
+                      color: msg.role === 'user' ? '#000' : '#CCCCCC',
+                    }}>
                       {msg.content}
                     </div>
                   </div>
                 ))}
                 {chatLoading && (
-                  <div className="flex justify-start">
-                    <div className="bg-gray-100 px-4 py-2.5 rounded-2xl">
-                      <span className="text-xs text-gray-400 animate-pulse">Thinking...</span>
+                  <div style={{display: 'flex', justifyContent: 'flex-start'}}>
+                    <div style={{background: '#1A1A1A', padding: '10px 14px', borderRadius: '12px', fontSize: '13px', color: '#555'}}>
+                      Thinking...
                     </div>
                   </div>
                 )}
               </div>
-              <div className="flex gap-2">
+              <div style={{display: 'flex', gap: '8px'}}>
                 <input
                   type="text"
                   value={chatInput}
                   onChange={e => setChatInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && sendChatMessage()}
                   placeholder="Ask a follow up question..."
-                  className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
+                  style={{
+                    flex: 1, padding: '10px 14px', background: '#0D0D0D',
+                    border: '1px solid #222', borderRadius: '10px', fontSize: '13px',
+                    color: '#F5F5F5', outline: 'none', fontFamily: 'inherit',
+                  }}
                 />
                 <button
                   onClick={sendChatMessage}
                   disabled={chatLoading || !chatInput.trim()}
-                  className="px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition disabled:opacity-40"
+                  style={{
+                    padding: '10px 16px', background: '#38BDF8', border: 'none',
+                    borderRadius: '10px', fontSize: '13px', fontWeight: '500',
+                    color: '#000', cursor: 'pointer', fontFamily: 'inherit',
+                    opacity: chatLoading ? 0.5 : 1,
+                  }}
                 >
                   Send
                 </button>
@@ -400,9 +421,14 @@ function ResearchPageContent()  {
     </div>
   );
 }
+
 export default function ResearchPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><p className="text-gray-500">Loading...</p></div>}>
+    <Suspense fallback={
+      <div style={{minHeight: '100vh', background: '#0A0A0A', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+        <p style={{color: '#555', fontSize: '14px'}}>Loading...</p>
+      </div>
+    }>
       <ResearchPageContent />
     </Suspense>
   );

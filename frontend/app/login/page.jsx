@@ -11,95 +11,70 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      setError('Please fill in all fields');
-      return;
-    }
-
+    if (!email || !password) { setError('Please fill in all fields'); return; }
     setLoading(true);
     setError('');
-
     try {
       const response = await fetch('https://decision-ai-production-89e7.up.railway.app/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
-
       const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.message || 'Login failed');
-        return;
-      }
-
+      if (!response.ok) { setError(data.message || 'Login failed'); return; }
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
       router.push('/');
-
-    } catch (err) {
-      setError('Something went wrong. Try again.');
-    } finally {
-      setLoading(false);
-    }
+    } catch { setError('Something went wrong.'); }
+    finally { setLoading(false); }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 w-full max-w-md p-8">
+    <div style={{minHeight: '100vh', background: '#0A0A0A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: '-apple-system, sans-serif', padding: '24px'}}>
+      <div style={{width: '100%', maxWidth: '380px'}}>
 
-        <div className="mb-8">
-          <h1 className="text-2xl font-semibold text-gray-900 mb-1">Welcome back</h1>
-          <p className="text-sm text-gray-500">Sign in to TrueCompare</p>
+        <div style={{textAlign: 'center', marginBottom: '40px'}}>
+          <div style={{width: '40px', height: '40px', borderRadius: '10px', background: '#38BDF8', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px'}}>
+            <span style={{fontSize: '20px', fontWeight: '700', color: '#000'}}>d</span>
+          </div>
+          <h1 style={{fontSize: '22px', fontWeight: '600', color: '#F5F5F5', marginBottom: '6px'}}>Welcome back</h1>
+          <p style={{fontSize: '14px', color: '#555'}}>Sign in to decision-ai</p>
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-100 rounded-xl p-3 mb-4">
-            <p className="text-sm text-red-600">{error}</p>
+          <div style={{background: '#1A0A0A', border: '1px solid #3A1A1A', borderRadius: '10px', padding: '12px 14px', marginBottom: '16px'}}>
+            <p style={{fontSize: '13px', color: '#FF6B6B'}}>{error}</p>
           </div>
         )}
 
-        <div className="space-y-4 mb-6">
+        <div style={{display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px'}}>
           <div>
-            <label className="text-sm text-gray-600 block mb-1.5">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
+            <label style={{fontSize: '13px', color: '#888', display: 'block', marginBottom: '6px'}}>Email</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleLogin()}
               placeholder="you@example.com"
-              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
+              style={{width: '100%', padding: '11px 14px', background: '#111111', border: '1px solid #222222', borderRadius: '10px', fontSize: '14px', color: '#F5F5F5', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box'}}
             />
           </div>
           <div>
-            <label className="text-sm text-gray-600 block mb-1.5">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
+            <label style={{fontSize: '13px', color: '#888', display: 'block', marginBottom: '6px'}}>Password</label>
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleLogin()}
               placeholder="••••••••"
-              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
+              style={{width: '100%', padding: '11px 14px', background: '#111111', border: '1px solid #222222', borderRadius: '10px', fontSize: '14px', color: '#F5F5F5', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box'}}
             />
           </div>
         </div>
 
-        <button
-          onClick={handleLogin}
-          disabled={loading}
-          className="w-full bg-blue-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50"
-        >
-          {loading ? 'Signing in...' : 'Sign in'}
-        </button>
+        <button onClick={handleLogin} disabled={loading}
+          style={{width: '100%', padding: '12px', background: '#38BDF8', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: '500', color: '#000', cursor: 'pointer', fontFamily: 'inherit', opacity: loading ? 0.7 : 1, marginBottom: '16px'}}
+        >{loading ? 'Signing in...' : 'Sign in'}</button>
 
-        <p className="text-center text-sm text-gray-500 mt-4">
+        <p style={{textAlign: 'center', fontSize: '13px', color: '#555'}}>
           Don't have an account?{' '}
-          <button
-            onClick={() => router.push('/register')}
-            className="text-blue-600 font-medium hover:underline"
-          >
-            Sign up
-          </button>
+          <button onClick={() => router.push('/register')}
+            style={{background: 'none', border: 'none', color: '#38BDF8', cursor: 'pointer', fontSize: '13px', fontFamily: 'inherit'}}
+          >Sign up</button>
         </p>
 
       </div>
